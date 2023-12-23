@@ -4,10 +4,10 @@ import pandas as pd
 import os
 import shutil
 
-POINTS_L = [1, 32, 49, 4]
-POINTS_R = [17, 36, 55, 14]
-#POINTS_L = [37, 32, 49]
-#POINTS_R = [46, 36, 55]
+#POINTS_L = [1, 32, 49, 4]
+#POINTS_R = [17, 36, 55, 14]
+POINTS_L = [37, 32, 49]
+POINTS_R = [46, 36, 55]
 id_points_l = "_".join(map(lambda x: str(x),POINTS_L)) # [1,2,3] -> 1_2_3
 id_points_r = "_".join(map(lambda x: str(x),POINTS_R)) # [1,2,3] -> 1_2_3
 id_points = id_points_l + "__" + id_points_r
@@ -60,8 +60,10 @@ df = pd.read_excel("data/landmarks68.xlsx")
 df_skin = pd.DataFrame()
 
 
+#for index, row in df[df["Filename"] == "761_aligned.jpg"].iterrows():
 for index, row in df.iterrows():
     filename = row["Filename"]
+    print(filename)
     path = "output/" + filename
     img = cv.imread(path)
 
@@ -73,7 +75,8 @@ for index, row in df.iterrows():
     cv.fillPoly(mask, left_corners, 255)
     cv.fillPoly(mask, right_corners, 255)    
 
-    masked_image = cv.bitwise_or(img, np.dstack([mask]*3))
+    #masked_image = cv.bitwise_or(img, np.dstack([mask]*3))
+    masked_image = cv.addWeighted(img,1,np.dstack([mask,np.zeros(img.shape[:2], dtype=np.uint8),np.zeros(img.shape[:2], dtype=np.uint8)]),0.9,0)
     cv.imwrite(segmentation_folder + "/" + filename + ".png",masked_image)
 
     median_r,median_g,median_b = median_rgb(img,mask)
@@ -87,6 +90,7 @@ for index, row in df.iterrows():
             "Mean Green":mean_g,
             "Mean Blue":mean_b}
 
-    df_skin = df_skin.append(dict, ignore_index = True)
+#    df_skin = df_skin.append(dict, ignore_index = True)
+    df_skin = pd.concat([df_skin, pd.DataFrame([dict])], ignore_index=True)
 
 df_skin.to_excel("data/skin__"+id_points+".xlsx")
