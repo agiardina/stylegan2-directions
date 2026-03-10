@@ -2,6 +2,9 @@
 facepp_df <- read.table("../data/all_coordinates.raw", header = TRUE)
 dlib_df <- read.csv("../data/landmarks68.csv", sep = ",")
 
+x_cols <- paste0("X", seq(1, 135, 2))
+y_cols <- paste0("X", seq(2, 136, 2))
+
 aligned_pattern <- "p_?r_?o_?j_?e_?c_?t_?e_?d"
 
 facepp_aligned <- subset(facepp_df, grepl(aligned_pattern, facepp_df[[1]], ignore.case = TRUE))
@@ -114,18 +117,15 @@ library(jpeg)
 library(readxl)
 
 img_path <- "../img/297.jpg"
-img_path <- "/home/agiardina/dev/stylegan2-directions/output/297_aligned.jpg"
+img_path <- "/home/agiardina/dev/stylegan2-directions/output/297_projected.jpg"
 img <- readJPEG(img_path)
 img_h <- dim(img)[1]
 img_w <- dim(img)[2]
 
-dlib_row <- dlib_df[dlib_df$Filename == "297_aligned.jpg", ]
+dlib_row <- dlib_df[dlib_df$Filename == "297_projected.jpg", ]
 if (nrow(dlib_row) != 1) {
-  stop(sprintf("Trovate %d righe per 297_aligned in dlib_df", nrow(dlib_row)))
+  stop(sprintf("Trovate %d righe per 297_projected in dlib_df", nrow(dlib_row)))
 }
-
-x_cols <- paste0("X", seq(1, 135, 2))
-y_cols <- paste0("X", seq(2, 136, 2))
 
 dlib_points <- data.frame(
   `Dlib Landmark` = 1:68,
@@ -140,6 +140,114 @@ colnames(distance_df) <- c("Dlib Landmark", "Face++ mean distance")
 distance_df <- subset(distance_df, !is.na(`Dlib Landmark`))
 distance_df$`Dlib Landmark` <- as.integer(distance_df$`Dlib Landmark`)
 
+parse_variant_info <- function(filename) {
+  projected_match <- regexec("^([0-9]+)_projected\\.jpg$", filename)
+  projected_parts <- regmatches(filename, projected_match)[[1]]
+  if (length(projected_parts) == 2) {
+    return(list(
+      Id = projected_parts[2],
+      Variant = NA_character_,
+      Direction = NA_character_,
+      Magnitude = NA_character_,
+      Is_projected = TRUE,
+      Is_aligned = FALSE
+    ))
+  }
+
+  aligned_match <- regexec("^([0-9]+)_aligned\\.jpg$", filename)
+  aligned_parts <- regmatches(filename, aligned_match)[[1]]
+  if (length(aligned_parts) == 2) {
+    return(list(
+      Id = aligned_parts[2],
+      Variant = NA_character_,
+      Direction = NA_character_,
+      Magnitude = NA_character_,
+      Is_projected = FALSE,
+      Is_aligned = TRUE
+    ))
+  }
+
+  variant_match <- regexec("^([0-9]+)_([^_]+)_(neg|pos)([0-9]+)\\.jpg$", filename)
+  variant_parts <- regmatches(filename, variant_match)[[1]]
+  if (length(variant_parts) == 5) {
+    return(list(
+      Id = variant_parts[2],
+      Variant = variant_parts[3],
+      Direction = variant_parts[4],
+      Magnitude = variant_parts[5],
+      Is_projected = FALSE,
+      Is_aligned = FALSE
+    ))
+  }
+
+  list(
+    Id = NA_character_,
+    Variant = NA_character_,
+    Direction = NA_character_,
+    Magnitude = NA_character_,
+    Is_projected = FALSE,
+    Is_aligned = FALSE
+  )
+}
+
+variant_info <- lapply(dlib_df$Filename, parse_variant_info)
+variant_df <- do.call(rbind, lapply(variant_info, as.data.frame))
+dlib_df <- cbind(dlib_df, variant_df, stringsAsFactors = FALSE)
+
+projected_df <- subset(dlib_df, Is_projected)
+variants_df <- subset(dlib_df, !Is_projected & !Is_aligned & !is.na(Variant))
+
+if (nrow(projected_df) == 0) {
+  stop("Nessuna immagine projected trovata in dlib_df")
+}
+if (nrow(variants_df) == 0) {
+  stop("Nessuna variante trovata in dlib_df")
+}
+
+expand_landmarks <- function(df, id_cols) {
+  x_vals <- as.matrix(df[, x_cols])
+  y_vals <- as.matrix(df[, y_cols])
+  n <- nrow(df)
+  landmark_ids <- 1:68
+  data.frame(
+    df[id_cols][rep(seq_len(n), each = 68), , drop = FALSE],
+    `Dlib Landmark` = rep(landmark_ids, times = n),
+    `Dlib x` = as.numeric(as.vector(t(x_vals))),
+    `Dlib y` = as.numeric(as.vector(t(y_vals))),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+}
+
+projected_long <- expand_landmarks(projected_df, c("Id"))
+variants_long <- expand_landmarks(variants_df, c("Id", "Variant", "Direction", "Magnitude"))
+
+variant_joined <- merge(
+  variants_long,
+  projected_long,
+  by = c("Id", "Dlib Landmark"),
+  suffixes = c("_var", "_proj"),
+  all = FALSE,
+  sort = FALSE
+)
+
+variant_joined$`Euclidean displacement` <- sqrt(
+  (variant_joined$`Dlib x_var` - variant_joined$`Dlib x_proj`)^2 +
+    (variant_joined$`Dlib y_var` - variant_joined$`Dlib y_proj`)^2
+)
+
+variant_mean_df <- aggregate(
+  `Euclidean displacement` ~ Id + Variant + `Dlib Landmark`,
+  data = variant_joined,
+  FUN = mean
+)
+
+variant_max_df <- aggregate(
+  `Euclidean displacement` ~ Id + Variant + `Dlib Landmark`,
+  data = variant_joined,
+  FUN = max
+)
+
 landmarks_keep <- distance_df$`Dlib Landmark`
 if (length(landmarks_keep) == 0) {
   stop("Nessun landmark trovato in dlib_facepp_distance.xlsx")
@@ -152,6 +260,19 @@ dlib_points <- merge(
   all = FALSE,
   sort = FALSE
 )
+
+target_id <- "297"
+if (!target_id %in% projected_df$Id) {
+  target_id <- projected_df$Id[1]
+}
+if (!target_id %in% variant_mean_df$Id) {
+  target_id <- variant_mean_df$Id[1]
+}
+
+projected_row <- projected_df[projected_df$Id == target_id, ]
+if (nrow(projected_row) != 1) {
+  stop(sprintf("Trovate %d righe projected per id %s", nrow(projected_row), target_id))
+}
 
 dir.create("out", showWarnings = FALSE, recursive = TRUE)
 out_path <- file.path("out", "297_dlib_landmarks_exact_overlay.png")
@@ -200,3 +321,123 @@ points(
 
 dev.off()
 message("Wrote: ", out_path)
+
+# ---- Overlay: mean displacement per variant vs projected ----
+img_path <- file.path("/home/agiardina/dev/stylegan2-directions/output", paste0(target_id, "_projected.jpg"))
+if (!file.exists(img_path)) {
+  stop(sprintf("Immagine projected non trovata: %s", img_path))
+}
+img <- readJPEG(img_path)
+img_h <- dim(img)[1]
+img_w <- dim(img)[2]
+
+projected_points <- data.frame(
+  `Dlib Landmark` = 1:68,
+  `Dlib x` = as.numeric(projected_row[1, x_cols]),
+  `Dlib y` = as.numeric(projected_row[1, y_cols]),
+  check.names = FALSE
+)
+
+variant_levels <- sort(unique(variant_mean_df$Variant[variant_mean_df$Id == target_id]))
+for (variant_name in variant_levels) {
+  variant_points <- subset(
+    variant_mean_df,
+    Variant == variant_name & Id == target_id
+  )
+  variant_points <- merge(
+    projected_points,
+    variant_points,
+    by = "Dlib Landmark",
+    all = FALSE,
+    sort = FALSE
+  )
+
+  variant_points <- subset(variant_points, `Dlib Landmark` %in% landmarks_keep)
+
+  out_path <- file.path(
+    "out",
+    sprintf("%s_%s_mean_displacement_overlay.png", target_id, variant_name)
+  )
+
+  png(out_path, width = img_w, height = img_h)
+  par(mar = c(0, 0, 0, 0))
+  plot(
+    NA,
+    xlim = c(0, img_w), ylim = c(img_h, 0),
+    asp = 1, xaxs = "i", yaxs = "i",
+    xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
+  )
+  rasterImage(img, 0, img_h, img_w, 0)
+
+  symbols(
+    variant_points$`Dlib x`, variant_points$`Dlib y`,
+    circles = variant_points$`Euclidean displacement`,
+    inches = FALSE,
+    add = TRUE,
+    fg = adjustcolor("deeppink3", alpha.f = 0.35),
+    bg = adjustcolor("blue", alpha.f = 0.38),
+    lwd = 2
+  )
+
+  points(
+    variant_points$`Dlib x`, variant_points$`Dlib y`,
+    pch = 21, cex = 2.2,
+    bg = adjustcolor("red", alpha.f = 0.55),
+    col = adjustcolor("white", alpha.f = 0.9),
+    lwd = 2
+  )
+
+  dev.off()
+  message("Wrote: ", out_path)
+
+  variant_points <- subset(
+    variant_max_df,
+    Variant == variant_name & Id == target_id
+  )
+  variant_points <- merge(
+    projected_points,
+    variant_points,
+    by = "Dlib Landmark",
+    all = FALSE,
+    sort = FALSE
+  )
+
+  variant_points <- subset(variant_points, `Dlib Landmark` %in% landmarks_keep)
+
+  out_path <- file.path(
+    "out",
+    sprintf("%s_%s_max_displacement_overlay.png", target_id, variant_name)
+  )
+
+  png(out_path, width = img_w, height = img_h)
+  par(mar = c(0, 0, 0, 0))
+  plot(
+    NA,
+    xlim = c(0, img_w), ylim = c(img_h, 0),
+    asp = 1, xaxs = "i", yaxs = "i",
+    xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
+  )
+  rasterImage(img, 0, img_h, img_w, 0)
+
+  symbols(
+    variant_points$`Dlib x`, variant_points$`Dlib y`,
+    circles = variant_points$`Euclidean displacement`,
+    inches = FALSE,
+    add = TRUE,
+    fg = adjustcolor("deeppink3", alpha.f = 0.35),
+    bg = adjustcolor("blue", alpha.f = 0.38),
+    lwd = 2
+  )
+
+  points(
+    variant_points$`Dlib x`, variant_points$`Dlib y`,
+    pch = 21, cex = 2.2,
+    bg = adjustcolor("red", alpha.f = 0.55),
+    col = adjustcolor("white", alpha.f = 0.9),
+    lwd = 2
+  )
+
+  dev.off()
+  message("Wrote: ", out_path)
+}
+
