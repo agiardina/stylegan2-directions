@@ -134,6 +134,30 @@ dlib_points <- data.frame(
   check.names = FALSE
 )
 
+facepp_row <- facepp_aligned[facepp_aligned$Filename_norm == "297_projected", ]
+if (nrow(facepp_row) != 1) {
+  stop(sprintf("Trovate %d righe per 297_projected in facepp_aligned", nrow(facepp_row)))
+}
+
+protocol_dlib_ids <- unique(protocol_df$Dlib_id)
+protocol_facepp_ids <- unique(protocol_df$Facepp_id)
+
+facepp_x_cols <- paste0("y", protocol_facepp_ids)
+facepp_y_cols <- paste0("x", protocol_facepp_ids)
+missing_facepp_cols <- setdiff(c(facepp_x_cols, facepp_y_cols), names(facepp_row))
+if (length(missing_facepp_cols) > 0) {
+  stop(sprintf("Colonne Face++ mancanti: %s", paste(missing_facepp_cols, collapse = ", ")))
+}
+
+facepp_points <- data.frame(
+  `Face++ Landmark` = protocol_facepp_ids,
+  `Face++ x` = as.numeric(facepp_row[1, facepp_x_cols]),
+  `Face++ y` = as.numeric(facepp_row[1, facepp_y_cols]),
+  check.names = FALSE
+)
+
+dlib_points <- subset(dlib_points, `Dlib Landmark` %in% protocol_dlib_ids)
+
 landmarks_path <- "../data/dlib_facepp_distance.xlsx"
 distance_df <- read_excel(landmarks_path, col_names = FALSE)
 colnames(distance_df) <- c("Dlib Landmark", "Face++ mean distance")
@@ -329,6 +353,14 @@ points(
   dlib_points$`Dlib x`, dlib_points$`Dlib y`,
   pch = 21, cex = 2.2,
   bg = adjustcolor("red", alpha.f = 0.55),
+  col = adjustcolor("white", alpha.f = 0.9),
+  lwd = 2
+)
+
+points(
+  facepp_points$`Face++ x`, facepp_points$`Face++ y`,
+  pch = 24, cex = 2.0,
+  bg = adjustcolor("dodgerblue3", alpha.f = 0.6),
   col = adjustcolor("white", alpha.f = 0.9),
   lwd = 2
 )
