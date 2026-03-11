@@ -344,7 +344,7 @@ symbols(
   circles = dlib_points$`Face++ mean distance`,
   inches = FALSE,
   add = TRUE,
-  fg = adjustcolor("deeppink3", alpha.f = 0.35),
+  fg = adjustcolor("gold", alpha.f = 0.95),
   bg = adjustcolor("gray", alpha.f = 0.38),
   lwd = 2
 )
@@ -363,6 +363,29 @@ points(
   bg = adjustcolor("dodgerblue3", alpha.f = 0.6),
   col = adjustcolor("white", alpha.f = 0.9),
   lwd = 2
+)
+
+legend(
+  "bottomleft",
+  legend = c("Dlib landmarks", "Face++ landmarks", "Face++ mean distance"),
+  pt.cex = c(2.2, 2.0, NA),
+  pch = c(21, 24, NA),
+  pt.bg = c(
+    adjustcolor("red", alpha.f = 0.55),
+    adjustcolor("dodgerblue3", alpha.f = 0.6),
+    NA
+  ),
+  col = c(
+    adjustcolor("white", alpha.f = 0.9),
+    adjustcolor("white", alpha.f = 0.9),
+    adjustcolor("gold", alpha.f = 0.95)
+  ),
+  lwd = c(2, 2, 3),
+  lty = c(NA, NA, 1),
+  bty = "o",
+  bg = adjustcolor("black", alpha.f = 0.6),
+  text.col = adjustcolor("white", alpha.f = 0.98),
+  cex = 1.3
 )
 
 # # landmark id labels near each point
