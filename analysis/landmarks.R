@@ -195,10 +195,14 @@ variant_df <- do.call(rbind, lapply(variant_info, as.data.frame))
 dlib_df <- cbind(dlib_df, variant_df, stringsAsFactors = FALSE)
 
 projected_df <- subset(dlib_df, Is_projected)
+aligned_df <- subset(dlib_df, Is_aligned)
 variants_df <- subset(dlib_df, !Is_projected & !Is_aligned & !is.na(Variant))
 
 if (nrow(projected_df) == 0) {
   stop("Nessuna immagine projected trovata in dlib_df")
+}
+if (nrow(aligned_df) == 0) {
+  stop("Nessuna immagine aligned trovata in dlib_df")
 }
 if (nrow(variants_df) == 0) {
   stop("Nessuna variante trovata in dlib_df")
@@ -220,6 +224,7 @@ expand_landmarks <- function(df, id_cols) {
 }
 
 projected_long <- expand_landmarks(projected_df, c("Id"))
+aligned_long <- expand_landmarks(aligned_df, c("Id"))
 variants_long <- expand_landmarks(variants_df, c("Id", "Variant", "Direction", "Magnitude"))
 
 variant_joined <- merge(
@@ -236,6 +241,20 @@ variant_joined$`Euclidean displacement` <- sqrt(
     (variant_joined$`Dlib y_var` - variant_joined$`Dlib y_proj`)^2
 )
 
+aligned_joined <- merge(
+  aligned_long,
+  projected_long,
+  by = c("Id", "Dlib Landmark"),
+  suffixes = c("_aligned", "_proj"),
+  all = FALSE,
+  sort = FALSE
+)
+
+aligned_joined$`Euclidean displacement` <- sqrt(
+  (aligned_joined$`Dlib x_aligned` - aligned_joined$`Dlib x_proj`)^2 +
+    (aligned_joined$`Dlib y_aligned` - aligned_joined$`Dlib y_proj`)^2
+)
+
 variant_mean_df <- aggregate(
   `Euclidean displacement` ~ Id + Variant + `Dlib Landmark`,
   data = variant_joined,
@@ -245,6 +264,12 @@ variant_mean_df <- aggregate(
 variant_max_df <- aggregate(
   `Euclidean displacement` ~ Id + Variant + `Dlib Landmark`,
   data = variant_joined,
+  FUN = max
+)
+
+aligned_max_df <- aggregate(
+  `Euclidean displacement` ~ Id + `Dlib Landmark`,
+  data = aligned_joined,
   FUN = max
 )
 
@@ -267,6 +292,9 @@ if (!target_id %in% projected_df$Id) {
 }
 if (!target_id %in% variant_mean_df$Id) {
   target_id <- variant_mean_df$Id[1]
+}
+if (!target_id %in% aligned_max_df$Id) {
+  target_id <- aligned_max_df$Id[1]
 }
 
 projected_row <- projected_df[projected_df$Id == target_id, ]
@@ -337,6 +365,52 @@ projected_points <- data.frame(
   `Dlib y` = as.numeric(projected_row[1, y_cols]),
   check.names = FALSE
 )
+
+aligned_points <- subset(aligned_max_df, Id == target_id)
+aligned_points <- merge(
+  projected_points,
+  aligned_points,
+  by = "Dlib Landmark",
+  all = FALSE,
+  sort = FALSE
+)
+aligned_points <- subset(aligned_points, `Dlib Landmark` %in% landmarks_keep)
+
+out_path <- file.path(
+  "out",
+  sprintf("%s_aligned_projected_max_displacement_overlay.png", target_id)
+)
+
+png(out_path, width = img_w, height = img_h)
+par(mar = c(0, 0, 0, 0))
+plot(
+  NA,
+  xlim = c(0, img_w), ylim = c(img_h, 0),
+  asp = 1, xaxs = "i", yaxs = "i",
+  xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
+)
+rasterImage(img, 0, img_h, img_w, 0)
+
+symbols(
+  aligned_points$`Dlib x`, aligned_points$`Dlib y`,
+  circles = aligned_points$`Euclidean displacement`,
+  inches = FALSE,
+  add = TRUE,
+  fg = adjustcolor("deeppink3", alpha.f = 0.35),
+  bg = adjustcolor("blue", alpha.f = 0.38),
+  lwd = 2
+)
+
+points(
+  aligned_points$`Dlib x`, aligned_points$`Dlib y`,
+  pch = 21, cex = 2.2,
+  bg = adjustcolor("red", alpha.f = 0.55),
+  col = adjustcolor("white", alpha.f = 0.9),
+  lwd = 2
+)
+
+dev.off()
+message("Wrote: ", out_path)
 
 variant_levels <- sort(unique(variant_mean_df$Variant[variant_mean_df$Id == target_id]))
 for (variant_name in variant_levels) {
@@ -440,4 +514,3 @@ for (variant_name in variant_levels) {
   dev.off()
   message("Wrote: ", out_path)
 }
-
