@@ -174,10 +174,31 @@ Rscript analysis/pca.R
 Rscript analysis/landmarks.R
 ```
 
-## Notes for Zenodo
+## License and Third-Party Materials
 
-This README intentionally avoids a definitive manuscript title and journal name.
-Those should be added only after acceptance or at final archival time.
+Code authored for this repository is released under the MIT License. Copyright
+is held collectively by the project authors. See `LICENSE` for the license text
+and `CITATION.cff` for citation metadata.
 
-The archived Zenodo record should cite the final repository version and include
-the assigned DOI when available.
+The MIT License does not apply to third-party datasets, external repositories,
+pre-trained models, checkpoints, or generated materials derived from restricted
+third-party data. Those materials remain subject to their original licenses and
+terms of use.
+
+The images in `data/test_images/` are a subset of CelebA-HQ, which is derived
+from the CelebA dataset. CelebA is made available for non-commercial research
+purposes and is subject to restrictions on copying, publishing, and
+redistribution under its original terms:
+
+```text
+https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+```
+
+Generated outputs derived from these images, including files under `out/images/`,
+may also be subject to the same source-data restrictions and should not be
+treated as MIT-licensed data.
+
+External repositories and model files listed above retain their own upstream
+licenses and terms. In particular, users should review the licenses and terms
+for StyleGAN2-ADA, ReStyle, the original direction repository, the dlib landmark
+model, and the iris segmentation model before redistribution.
