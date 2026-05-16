@@ -4,7 +4,7 @@
 library(jpeg)
 library(readxl)
 
-facepp_df <- read.table("out/measurements/facepp.raw", header = TRUE)
+facepp_df <- read.table("out/measurements/facepp_landmarks.raw", header = TRUE)
 dlib_df <- as.data.frame(read_excel("out/measurements/landmarks68.xlsx"), stringsAsFactors = FALSE)
 
 x_cols <- as.character(seq(1, 135, 2))
