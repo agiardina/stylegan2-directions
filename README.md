@@ -1,8 +1,10 @@
 # StyleGAN2 Directions Repository
 
+[![DOI](https://zenodo.org/badge/447692854.svg)](https://doi.org/10.5281/zenodo.20245919)
+
 This repository contains code, data, latent directions, generated outputs, and
-analysis files for a manuscript in preparation. The final article title,
-journal, and Zenodo DOI are not fixed yet.
+analysis files for a manuscript in preparation. The final article title and
+journal are not fixed yet.
 
 All paths below are relative to the repository root.
 
