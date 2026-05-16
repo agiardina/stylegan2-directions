@@ -2,6 +2,9 @@
 """
 Project all aligned test images into StyleGAN2 W+ space with ReStyle-pSp.
 
+Run this script from the project root:
+python3 validation/generate_latentspaces.py
+
 Before running:
 git clone https://github.com/yuval-alaluf/restyle-encoder.git
 
@@ -10,6 +13,9 @@ https://drive.google.com/file/d/1sw6I2lRIB0MpuJkpc8F5BJiSZrc0hjfE/view?usp=shari
 
 Save it as:
 models/restyle_psp_ffhq_encode.pt
+
+The restyle-encoder, models, data, and out paths are resolved relative to
+the project root.
 """
 
 import glob

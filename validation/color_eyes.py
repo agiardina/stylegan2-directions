@@ -1,6 +1,7 @@
 import numpy as np
 import cv2 as cv
 import pandas as pd
+import os
 from tensorflow.keras.models import load_model
 
 LEFT_X1 = (37 * 2)  -1
@@ -76,14 +77,15 @@ def median_rgb(img,mask):
 
     
 
-df = pd.read_excel("data/landmarks68.xlsx")
+df = pd.read_excel("out/measurements/landmarks68.xlsx")
 model_iris_edge = load_model('models/MobileNetV2_Iris_Seg_10May.h5')
 
+os.makedirs("out/measurements", exist_ok=True)
 df_eyes = pd.DataFrame()
 
 for index, row in df.iterrows():
     filename = row["Filename"]
-    path = "output/" + filename
+    path = "out/images/" + filename
     img = cv.imread(path)
 
     left_eye = get_left_eye(img,row)
@@ -112,5 +114,5 @@ for index, row in df.iterrows():
             "Right Mean Green":r_mean_g,
             "Right Mean Blue":r_mean_b}
 
-    df_eyes = df_eyes.append(dict, ignore_index = True)
-    df_eyes.to_excel("eyes.xlsx")
+    df_eyes = pd.concat([df_eyes, pd.DataFrame([dict])], ignore_index=True)
+    df_eyes.to_excel("out/measurements/eyes.xlsx", index=False)

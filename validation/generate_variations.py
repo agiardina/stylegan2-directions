@@ -2,9 +2,15 @@
 """
 Generate image variations by applying latent directions.
 
+Run this script from the project root:
+python3 validation/generate_variations.py
+
 Age and gender directions are loaded from the original external repository.
 Before running:
 git clone https://github.com/a312863063/generators-with-stylegan2.git
+
+The stylegan2-ada-pytorch, generators-with-stylegan2, models, directions,
+data, and out paths are resolved relative to the project root.
 """
 
 import sys

@@ -51,12 +51,13 @@ def get_corners(row,cols_x,cols_y):
     
 
 #Remove and recreate the the segmentation folder
-segmentation_folder = "segmentation__" + id_points
+os.makedirs("out/measurements", exist_ok=True)
+segmentation_folder = "out/segmentation__" + id_points
 shutil.rmtree(segmentation_folder,ignore_errors=True)
 os.mkdir(segmentation_folder)
 
 #Read the landmarks files
-df = pd.read_excel("data/landmarks68.xlsx")
+df = pd.read_excel("out/measurements/landmarks68.xlsx")
 df_skin = pd.DataFrame()
 
 
@@ -64,7 +65,7 @@ df_skin = pd.DataFrame()
 for index, row in df.iterrows():
     filename = row["Filename"]
     print(filename)
-    path = "output/" + filename
+    path = "out/images/" + filename
     img = cv.imread(path)
 
     mask = np.ones(img.shape[:2], dtype=np.uint8)
@@ -93,4 +94,4 @@ for index, row in df.iterrows():
 #    df_skin = df_skin.append(dict, ignore_index = True)
     df_skin = pd.concat([df_skin, pd.DataFrame([dict])], ignore_index=True)
 
-df_skin.to_excel("data/skin__"+id_points+".xlsx")
+df_skin.to_excel("out/measurements/skin__"+id_points+".xlsx", index=False)
