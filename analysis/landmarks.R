@@ -1,14 +1,19 @@
+# Run from the project root:
+# Rscript analysis/landmarks.R
 
-facepp_df <- read.table("../data/all_coordinates.raw", header = TRUE)
-dlib_df <- read.csv("../data/landmarks68.csv", sep = ",")
+library(jpeg)
+library(readxl)
 
-x_cols <- paste0("X", seq(1, 135, 2))
-y_cols <- paste0("X", seq(2, 136, 2))
+facepp_df <- read.table("out/measurements/facepp.raw", header = TRUE)
+dlib_df <- as.data.frame(read_excel("out/measurements/landmarks68.xlsx"), stringsAsFactors = FALSE)
+
+x_cols <- as.character(seq(1, 135, 2))
+y_cols <- as.character(seq(2, 136, 2))
 
 aligned_pattern <- "p_?r_?o_?j_?e_?c_?t_?e_?d"
 
 facepp_aligned <- subset(facepp_df, grepl(aligned_pattern, facepp_df[[1]], ignore.case = TRUE))
-dlib_aligned <- subset(dlib_df, grepl(aligned_pattern, dlib_df[[1]], ignore.case = TRUE))
+dlib_aligned <- subset(dlib_df, grepl(aligned_pattern, Filename, ignore.case = TRUE))
 
 if (nrow(facepp_aligned) != nrow(dlib_aligned)) {
   stop(sprintf(
@@ -18,7 +23,7 @@ if (nrow(facepp_aligned) != nrow(dlib_aligned)) {
   ))
 }
 
-protocol_df <- read.csv("../data/protocol.csv", stringsAsFactors = FALSE, check.names = FALSE)
+protocol_df <- read.csv("data/protocol.csv", stringsAsFactors = FALSE, check.names = FALSE)
 protocol_df$Facepp_id <- suppressWarnings(as.integer(protocol_df[["Face++"]]))
 protocol_df$Dlib_id <- suppressWarnings(as.integer(protocol_df[["Dlib"]]))
 protocol_df <- subset(protocol_df, !is.na(Facepp_id) & !is.na(Dlib_id))
@@ -53,8 +58,8 @@ for (i in seq_len(n_common)) {
   dlib_id <- protocol_df$Dlib_id[i]
   facepp_id <- protocol_df$Facepp_id[i]
 
-  dlib_x_col <- paste0("X", 2 * dlib_id - 1)
-  dlib_y_col <- paste0("X", 2 * dlib_id)
+  dlib_x_col <- as.character(2 * dlib_id - 1)
+  dlib_y_col <- as.character(2 * dlib_id)
   facepp_x_col <- paste0("y", facepp_id) #map x->y is not a bug, but for some mistery reason landmark position in the all_coordinates.raw file is inverted
   facepp_y_col <- paste0("x", facepp_id)
 
@@ -111,16 +116,18 @@ if (nrow(landmarks_mean_df) != n_common) {
 }
 
 # ---- Overlay: exact Dlib landmarks for 297_aligned ----
-# NOTE: the Dlib coordinates in landmarks68.csv are pixel coordinates.
+# NOTE: the Dlib coordinates in landmarks68.xlsx are pixel coordinates.
 # If the points look shifted, use the corresponding *_aligned image.
-library(jpeg)
-library(readxl)
 
-img_path <- "../img/297.jpg"
-img_path <- "/home/agiardina/dev/stylegan2-directions/output/297_projected.jpg"
+img_path <- "out/images/297_projected.jpg"
 img <- readJPEG(img_path)
 img_h <- dim(img)[1]
 img_w <- dim(img)[2]
+target_dpi <- 300
+base_dpi <- 72
+scale_factor <- target_dpi / base_dpi
+img_h_scaled <- img_h * scale_factor
+img_w_scaled <- img_w * scale_factor
 
 dlib_row <- dlib_df[dlib_df$Filename == "297_projected.jpg", ]
 if (nrow(dlib_row) != 1) {
@@ -158,10 +165,8 @@ facepp_points <- data.frame(
 
 dlib_points <- subset(dlib_points, `Dlib Landmark` %in% protocol_dlib_ids)
 
-landmarks_path <- "../data/dlib_facepp_distance.xlsx"
-distance_df <- read_excel(landmarks_path, col_names = FALSE)
+distance_df <- landmarks_mean_df[, c("Dlib Landmark", "Euclidean distance")]
 colnames(distance_df) <- c("Dlib Landmark", "Face++ mean distance")
-distance_df <- subset(distance_df, !is.na(`Dlib Landmark`))
 distance_df$`Dlib Landmark` <- as.integer(distance_df$`Dlib Landmark`)
 
 parse_variant_info <- function(filename) {
@@ -299,7 +304,7 @@ aligned_max_df <- aggregate(
 
 landmarks_keep <- distance_df$`Dlib Landmark`
 if (length(landmarks_keep) == 0) {
-  stop("Nessun landmark trovato in dlib_facepp_distance.xlsx")
+  stop("Nessun landmark trovato in landmarks_mean_df")
 }
 
 dlib_points <- merge(
@@ -309,6 +314,15 @@ dlib_points <- merge(
   all = FALSE,
   sort = FALSE
 )
+
+dlib_points_scaled <- dlib_points
+dlib_points_scaled$`Dlib x` <- dlib_points$`Dlib x` * scale_factor
+dlib_points_scaled$`Dlib y` <- dlib_points$`Dlib y` * scale_factor
+dlib_points_scaled$`Face++ mean distance` <- dlib_points$`Face++ mean distance` * scale_factor
+
+facepp_points_scaled <- facepp_points
+facepp_points_scaled$`Face++ x` <- facepp_points$`Face++ x` * scale_factor
+facepp_points_scaled$`Face++ y` <- facepp_points$`Face++ y` * scale_factor
 
 target_id <- "297"
 if (!target_id %in% projected_df$Id) {
@@ -326,22 +340,30 @@ if (nrow(projected_row) != 1) {
   stop(sprintf("Trovate %d righe projected per id %s", nrow(projected_row), target_id))
 }
 
-dir.create("out", showWarnings = FALSE, recursive = TRUE)
-out_path <- file.path("out", "297_dlib_landmarks_exact_overlay.png")
+output_dir <- "out/analysis"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+out_path <- file.path(output_dir, "297_dlib_landmarks_exact_overlay.tiff")
 
-png(out_path, width = img_w, height = img_h)
+tiff(
+  out_path,
+  width = 2250, #img_w_scaled / target_dpi,
+  height = 2250, #img_h_scaled / target_dpi,
+  units = "px",
+  res = 300, #target_dpi,
+  compression = "lzw"
+)
 par(mar = c(0, 0, 0, 0))
 plot(
   NA,
-  xlim = c(0, img_w), ylim = c(img_h, 0),
+  xlim = c(0, img_w_scaled), ylim = c(img_h_scaled, 0),
   asp = 1, xaxs = "i", yaxs = "i",
   xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
 )
-rasterImage(img, 0, img_h, img_w, 0)
+rasterImage(img, 0, img_h_scaled, img_w_scaled, 0)
 
 symbols(
-  dlib_points$`Dlib x`, dlib_points$`Dlib y`,
-  circles = dlib_points$`Face++ mean distance`,
+  dlib_points_scaled$`Dlib x`, dlib_points_scaled$`Dlib y`,
+  circles = dlib_points_scaled$`Face++ mean distance`,
   inches = FALSE,
   add = TRUE,
   fg = adjustcolor("gold", alpha.f = 0.95),
@@ -350,7 +372,7 @@ symbols(
 )
 
 points(
-  dlib_points$`Dlib x`, dlib_points$`Dlib y`,
+  dlib_points_scaled$`Dlib x`, dlib_points_scaled$`Dlib y`,
   pch = 21, cex = 2.2,
   bg = adjustcolor("red", alpha.f = 0.55),
   col = adjustcolor("white", alpha.f = 0.9),
@@ -358,7 +380,7 @@ points(
 )
 
 points(
-  facepp_points$`Face++ x`, facepp_points$`Face++ y`,
+  facepp_points_scaled$`Face++ x`, facepp_points_scaled$`Face++ y`,
   pch = 24, cex = 2.0,
   bg = adjustcolor("dodgerblue3", alpha.f = 0.6),
   col = adjustcolor("white", alpha.f = 0.9),
@@ -387,7 +409,7 @@ legend(
   text.col = adjustcolor("white", alpha.f = 0.98),
   cex = 1.3
 )
-
+#
 # # landmark id labels near each point
 # text(
 #   dlib_points$`Dlib x`, dlib_points$`Dlib y`,
@@ -406,7 +428,7 @@ dev.off()
 message("Wrote: ", out_path)
 
 # ---- Overlay: mean displacement per variant vs projected ----
-img_path <- file.path("/home/agiardina/dev/stylegan2-directions/output", paste0(target_id, "_projected.jpg"))
+img_path <- file.path("out/images", paste0(target_id, "_projected.jpg"))
 if (!file.exists(img_path)) {
   stop(sprintf("Immagine projected non trovata: %s", img_path))
 }
@@ -432,11 +454,11 @@ aligned_points <- merge(
 aligned_points <- subset(aligned_points, `Dlib Landmark` %in% landmarks_keep)
 
 out_path <- file.path(
-  "out",
-  sprintf("%s_aligned_projected_max_displacement_overlay.png", target_id)
+  output_dir,
+  sprintf("%s_aligned_projected_max_displacement_overlay.tiff", target_id)
 )
 
-png(out_path, width = img_w, height = img_h)
+tiff(out_path, width = img_w, height = img_h, compression = "lzw")
 par(mar = c(0, 0, 0, 0))
 plot(
   NA,
@@ -484,11 +506,11 @@ for (variant_name in variant_levels) {
   variant_points <- subset(variant_points, `Dlib Landmark` %in% landmarks_keep)
 
   out_path <- file.path(
-    "out",
-    sprintf("%s_%s_mean_displacement_overlay.png", target_id, variant_name)
+    output_dir,
+    sprintf("%s_%s_mean_displacement_overlay.tiff", target_id, variant_name)
   )
 
-  png(out_path, width = img_w, height = img_h)
+  tiff(out_path, width = img_w, height = img_h, compression = "lzw")
   par(mar = c(0, 0, 0, 0))
   plot(
     NA,
@@ -534,11 +556,11 @@ for (variant_name in variant_levels) {
   variant_points <- subset(variant_points, `Dlib Landmark` %in% landmarks_keep)
 
   out_path <- file.path(
-    "out",
-    sprintf("%s_%s_max_displacement_overlay.png", target_id, variant_name)
+    output_dir,
+    sprintf("%s_%s_max_displacement_overlay.tiff", target_id, variant_name)
   )
 
-  png(out_path, width = img_w, height = img_h)
+  tiff(out_path, width = img_w, height = img_h, compression = "lzw")
   par(mar = c(0, 0, 0, 0))
   plot(
     NA,
