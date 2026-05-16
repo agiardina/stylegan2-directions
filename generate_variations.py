@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+"""
+Generate image variations by applying latent directions.
+
+Age and gender directions are loaded from the original external repository.
+Before running:
+git clone https://github.com/a312863063/generators-with-stylegan2.git
+"""
+
 import sys
 
 sys.path.insert(0, "./stylegan2-ada-pytorch")
@@ -36,9 +44,9 @@ def generate_image_from_w(w):
 
 
 v = {}
-v["age"] = np.load("directions/age.npy")
+v["age"] = np.load("generators-with-stylegan2/latent_directions/age.npy")
 v["age"] = v["age"] / np.linalg.norm(v["age"])
-v["gender"] = np.load("directions/gender.npy")
+v["gender"] = np.load("generators-with-stylegan2/latent_directions/gender.npy")
 v["gender"] = v["gender"] / np.linalg.norm(v["gender"])
 v["blueeyes"] = np.load("directions/blueeyes.npy")
 v["honeyeyes"] = np.load("directions/honeyeyes.npy")
