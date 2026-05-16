@@ -342,252 +342,64 @@ if (nrow(projected_row) != 1) {
 
 output_dir <- "out/analysis"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-out_path <- file.path(output_dir, "297_dlib_landmarks_exact_overlay.tiff")
+out_path_base <- file.path(output_dir, "297_dlib_landmarks_exact_overlay")
+
+draw_exact_overlay <- function() {
+  par(mar = c(0, 0, 0, 0))
+  plot(
+    NA, xlim = c(0, img_w_scaled), ylim = c(img_h_scaled, 0),
+    asp = 1, xaxs = "i", yaxs = "i",
+    xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
+  )
+  rasterImage(img, 0, img_h_scaled, img_w_scaled, 0)
+
+  symbols(
+    dlib_points_scaled$`Dlib x`, dlib_points_scaled$`Dlib y`,
+    circles = dlib_points_scaled$`Face++ mean distance`,
+    inches = FALSE,
+    add = TRUE,
+    fg = adjustcolor("gold", alpha.f = 0.95),
+    bg = adjustcolor("gray", alpha.f = 0.38),
+    lwd = 2
+  )
+
+  points(
+    dlib_points_scaled$`Dlib x`, dlib_points_scaled$`Dlib y`,
+    pch = 21, cex = 2.2,
+    bg = adjustcolor("red", alpha.f = 0.55),
+    col = adjustcolor("white", alpha.f = 0.9),
+    lwd = 2
+  )
+
+  points(
+    facepp_points_scaled$`Face++ x`, facepp_points_scaled$`Face++ y`,
+    pch = 24, cex = 2.0,
+    bg = adjustcolor("dodgerblue3", alpha.f = 0.6),
+    col = adjustcolor("white", alpha.f = 0.9),
+    lwd = 2
+  )
+
+}
 
 tiff(
-  out_path,
-  width = 2250, #img_w_scaled / target_dpi,
-  height = 2250, #img_h_scaled / target_dpi,
+  paste0(out_path_base, ".tiff"),
+  width = 2250,
+  height = 2250,
   units = "px",
-  res = 300, #target_dpi,
+  res = 300,
   compression = "lzw"
 )
-par(mar = c(0, 0, 0, 0))
-plot(
-  NA,
-  xlim = c(0, img_w_scaled), ylim = c(img_h_scaled, 0),
-  asp = 1, xaxs = "i", yaxs = "i",
-  xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
-)
-rasterImage(img, 0, img_h_scaled, img_w_scaled, 0)
-
-symbols(
-  dlib_points_scaled$`Dlib x`, dlib_points_scaled$`Dlib y`,
-  circles = dlib_points_scaled$`Face++ mean distance`,
-  inches = FALSE,
-  add = TRUE,
-  fg = adjustcolor("gold", alpha.f = 0.95),
-  bg = adjustcolor("gray", alpha.f = 0.38),
-  lwd = 2
-)
-
-points(
-  dlib_points_scaled$`Dlib x`, dlib_points_scaled$`Dlib y`,
-  pch = 21, cex = 2.2,
-  bg = adjustcolor("red", alpha.f = 0.55),
-  col = adjustcolor("white", alpha.f = 0.9),
-  lwd = 2
-)
-
-points(
-  facepp_points_scaled$`Face++ x`, facepp_points_scaled$`Face++ y`,
-  pch = 24, cex = 2.0,
-  bg = adjustcolor("dodgerblue3", alpha.f = 0.6),
-  col = adjustcolor("white", alpha.f = 0.9),
-  lwd = 2
-)
-
-legend(
-  "bottomleft",
-  legend = c("Dlib landmarks", "Face++ landmarks", "Face++ mean distance"),
-  pt.cex = c(2.2, 2.0, NA),
-  pch = c(21, 24, NA),
-  pt.bg = c(
-    adjustcolor("red", alpha.f = 0.55),
-    adjustcolor("dodgerblue3", alpha.f = 0.6),
-    NA
-  ),
-  col = c(
-    adjustcolor("white", alpha.f = 0.9),
-    adjustcolor("white", alpha.f = 0.9),
-    adjustcolor("gold", alpha.f = 0.95)
-  ),
-  lwd = c(2, 2, 3),
-  lty = c(NA, NA, 1),
-  bty = "o",
-  bg = adjustcolor("black", alpha.f = 0.6),
-  text.col = adjustcolor("white", alpha.f = 0.98),
-  cex = 1.3
-)
-#
-# # landmark id labels near each point
-# text(
-#   dlib_points$`Dlib x`, dlib_points$`Dlib y`,
-#   labels = dlib_points$`Dlib Landmark`,
-#   pos = 4, offset = 0.35, cex = 1.4,
-#   col = adjustcolor("black", alpha.f = 0.85)
-# )
-# text(
-#   dlib_points$`Dlib x`, dlib_points$`Dlib y`,
-#   labels = dlib_points$`Dlib Landmark`,
-#   pos = 4, offset = 0.35, cex = 1.4,
-#   col = adjustcolor("white", alpha.f = 0.95)
-# )
-
+draw_exact_overlay()
 dev.off()
-message("Wrote: ", out_path)
+message("Wrote: ", paste0(out_path_base, ".tiff"))
 
-# ---- Overlay: mean displacement per variant vs projected ----
-img_path <- file.path("out/images", paste0(target_id, "_projected.jpg"))
-if (!file.exists(img_path)) {
-  stop(sprintf("Immagine projected non trovata: %s", img_path))
-}
-img <- readJPEG(img_path)
-img_h <- dim(img)[1]
-img_w <- dim(img)[2]
-
-projected_points <- data.frame(
-  `Dlib Landmark` = 1:68,
-  `Dlib x` = as.numeric(projected_row[1, x_cols]),
-  `Dlib y` = as.numeric(projected_row[1, y_cols]),
-  check.names = FALSE
+png(
+  paste0(out_path_base, ".png"),
+  width = 2250,
+  height = 2250,
+  units = "px",
+  res = 300
 )
-
-aligned_points <- subset(aligned_max_df, Id == target_id)
-aligned_points <- merge(
-  projected_points,
-  aligned_points,
-  by = "Dlib Landmark",
-  all = FALSE,
-  sort = FALSE
-)
-aligned_points <- subset(aligned_points, `Dlib Landmark` %in% landmarks_keep)
-
-out_path <- file.path(
-  output_dir,
-  sprintf("%s_aligned_projected_max_displacement_overlay.tiff", target_id)
-)
-
-tiff(out_path, width = img_w, height = img_h, compression = "lzw")
-par(mar = c(0, 0, 0, 0))
-plot(
-  NA,
-  xlim = c(0, img_w), ylim = c(img_h, 0),
-  asp = 1, xaxs = "i", yaxs = "i",
-  xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
-)
-rasterImage(img, 0, img_h, img_w, 0)
-
-symbols(
-  aligned_points$`Dlib x`, aligned_points$`Dlib y`,
-  circles = aligned_points$`Euclidean displacement`,
-  inches = FALSE,
-  add = TRUE,
-  fg = adjustcolor("deeppink3", alpha.f = 0.35),
-  bg = adjustcolor("blue", alpha.f = 0.38),
-  lwd = 2
-)
-
-points(
-  aligned_points$`Dlib x`, aligned_points$`Dlib y`,
-  pch = 21, cex = 2.2,
-  bg = adjustcolor("red", alpha.f = 0.55),
-  col = adjustcolor("white", alpha.f = 0.9),
-  lwd = 2
-)
-
+draw_exact_overlay()
 dev.off()
-message("Wrote: ", out_path)
-
-variant_levels <- sort(unique(variant_mean_df$Variant[variant_mean_df$Id == target_id]))
-for (variant_name in variant_levels) {
-  variant_points <- subset(
-    variant_mean_df,
-    Variant == variant_name & Id == target_id
-  )
-  variant_points <- merge(
-    projected_points,
-    variant_points,
-    by = "Dlib Landmark",
-    all = FALSE,
-    sort = FALSE
-  )
-
-  variant_points <- subset(variant_points, `Dlib Landmark` %in% landmarks_keep)
-
-  out_path <- file.path(
-    output_dir,
-    sprintf("%s_%s_mean_displacement_overlay.tiff", target_id, variant_name)
-  )
-
-  tiff(out_path, width = img_w, height = img_h, compression = "lzw")
-  par(mar = c(0, 0, 0, 0))
-  plot(
-    NA,
-    xlim = c(0, img_w), ylim = c(img_h, 0),
-    asp = 1, xaxs = "i", yaxs = "i",
-    xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
-  )
-  rasterImage(img, 0, img_h, img_w, 0)
-
-  symbols(
-    variant_points$`Dlib x`, variant_points$`Dlib y`,
-    circles = variant_points$`Euclidean displacement`,
-    inches = FALSE,
-    add = TRUE,
-    fg = adjustcolor("deeppink3", alpha.f = 0.35),
-    bg = adjustcolor("blue", alpha.f = 0.38),
-    lwd = 2
-  )
-
-  points(
-    variant_points$`Dlib x`, variant_points$`Dlib y`,
-    pch = 21, cex = 2.2,
-    bg = adjustcolor("red", alpha.f = 0.55),
-    col = adjustcolor("white", alpha.f = 0.9),
-    lwd = 2
-  )
-
-  dev.off()
-  message("Wrote: ", out_path)
-
-  variant_points <- subset(
-    variant_max_df,
-    Variant == variant_name & Id == target_id
-  )
-  variant_points <- merge(
-    projected_points,
-    variant_points,
-    by = "Dlib Landmark",
-    all = FALSE,
-    sort = FALSE
-  )
-
-  variant_points <- subset(variant_points, `Dlib Landmark` %in% landmarks_keep)
-
-  out_path <- file.path(
-    output_dir,
-    sprintf("%s_%s_max_displacement_overlay.tiff", target_id, variant_name)
-  )
-
-  tiff(out_path, width = img_w, height = img_h, compression = "lzw")
-  par(mar = c(0, 0, 0, 0))
-  plot(
-    NA,
-    xlim = c(0, img_w), ylim = c(img_h, 0),
-    asp = 1, xaxs = "i", yaxs = "i",
-    xaxt = "n", yaxt = "n", xlab = "", ylab = "", bty = "n"
-  )
-  rasterImage(img, 0, img_h, img_w, 0)
-
-  symbols(
-    variant_points$`Dlib x`, variant_points$`Dlib y`,
-    circles = variant_points$`Euclidean displacement`,
-    inches = FALSE,
-    add = TRUE,
-    fg = adjustcolor("deeppink3", alpha.f = 0.35),
-    bg = adjustcolor("blue", alpha.f = 0.38),
-    lwd = 2
-  )
-
-  points(
-    variant_points$`Dlib x`, variant_points$`Dlib y`,
-    pch = 21, cex = 2.2,
-    bg = adjustcolor("red", alpha.f = 0.55),
-    col = adjustcolor("white", alpha.f = 0.9),
-    lwd = 2
-  )
-
-  dev.off()
-  message("Wrote: ", out_path)
-}
+message("Wrote: ", paste0(out_path_base, ".png"))
