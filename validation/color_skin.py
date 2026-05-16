@@ -8,6 +8,7 @@ import shutil
 #POINTS_R = [17, 36, 55, 14]
 POINTS_L = [37, 32, 49]
 POINTS_R = [46, 36, 55]
+SAVE_SEGMENTATION = False
 id_points_l = "_".join(map(lambda x: str(x),POINTS_L)) # [1,2,3] -> 1_2_3
 id_points_r = "_".join(map(lambda x: str(x),POINTS_R)) # [1,2,3] -> 1_2_3
 id_points = id_points_l + "__" + id_points_r
@@ -53,8 +54,9 @@ def get_corners(row,cols_x,cols_y):
 #Remove and recreate the the segmentation folder
 os.makedirs("out/measurements", exist_ok=True)
 segmentation_folder = "out/segmentation__" + id_points
-shutil.rmtree(segmentation_folder,ignore_errors=True)
-os.mkdir(segmentation_folder)
+if SAVE_SEGMENTATION:
+    shutil.rmtree(segmentation_folder,ignore_errors=True)
+    os.mkdir(segmentation_folder)
 
 #Read the landmarks files
 df = pd.read_excel("out/measurements/landmarks68.xlsx")
@@ -77,8 +79,9 @@ for index, row in df.iterrows():
     cv.fillPoly(mask, right_corners, 255)    
 
     #masked_image = cv.bitwise_or(img, np.dstack([mask]*3))
-    masked_image = cv.addWeighted(img,1,np.dstack([mask,np.zeros(img.shape[:2], dtype=np.uint8),np.zeros(img.shape[:2], dtype=np.uint8)]),0.9,0)
-    cv.imwrite(segmentation_folder + "/" + filename + ".png",masked_image)
+    if SAVE_SEGMENTATION:
+        masked_image = cv.addWeighted(img,1,np.dstack([mask,np.zeros(img.shape[:2], dtype=np.uint8),np.zeros(img.shape[:2], dtype=np.uint8)]),0.9,0)
+        cv.imwrite(segmentation_folder + "/" + filename + ".png",masked_image)
 
     median_r,median_g,median_b = median_rgb(img,mask)
     mean_r,mean_g,mean_b = mean_rgb(img,mask)
