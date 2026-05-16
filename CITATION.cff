@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: "StyleGAN2 latent directions for interpretable human facial image manipulation"
+message: "If you use this repository, please cite the archived Zenodo version."
+type: dataset
+authors:
+  - family-names: Giardina
+    given-names: Andrea
+  - family-names: Paria
+    given-names: Soumya Subhra
+  - family-names: Li
+    given-names: Qing
+  - family-names: Mehrbod
+    given-names: Melika
+  - family-names: Schoen
+    given-names: Jelena
+  - family-names: O'Regan
+    given-names: Jemimah
+  - family-names: Adhikari
+    given-names: Kaustubh
+repository-code: "https://github.com/agiardina/stylegan2-directions"
+abstract: "Repository containing data, images, latent-space directions, derived measurements, and analysis code supporting the manuscript on physically interpretable directions in the StyleGAN2 latent space."
+keywords:
+  - StyleGAN2
+  - GAN inversion
+  - latent space
+  - face editing
+  - facial morphology
+  - CelebA-HQ
