@@ -1,4 +1,3 @@
-# Minimal PCA plotting script converted from analysis/pca.qmd.
 # Run from project root:
 #   Rscript analysis/pca.R
 #
