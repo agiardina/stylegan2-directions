@@ -1,3 +1,19 @@
+"""
+Calculate iris colour measurements from generated images.
+
+Run from the project root:
+python3 validation/color_eyes.py
+
+Before running, download the KartalOl iris segmentation weights from:
+https://drive.google.com/file/d/1kJZcUX5lDqc7BiU7jSj0GTZuZwepbns8/view?usp=sharing
+
+The model comes from:
+https://github.com/Jalilnkh/KartalOl-NIR-ISL2021031301
+
+Save it as:
+models/MobileNetV2_Iris_Seg_10May.h5
+"""
+
 import numpy as np
 import cv2 as cv
 import pandas as pd
